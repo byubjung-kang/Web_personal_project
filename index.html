@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="author" content="Byubjung_kang">
+    <title>Animal Likeness Checker</title>
+    <link rel="stylesheet" href="stylesheet.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+</head>
+
+<body>
+    <header>
+        <section class="section">
+            <h1>Animal Likeness Checker</h1>
+            <h2>Discover which animal you resemble!</h2>
+        </section>
+    </header>
+
+    <div class="file-upload">
+        <button class="file-upload-btn" type="button" onclick="$('.file-upload-input').trigger( 'click' )">Add
+            Image</button>
+
+        <div class="image-upload-wrap">
+            <input class="file-upload-input" type='file' onchange="readURL(this);" accept="image/*" />
+            <div class="drag-text">
+                <h3>Drag and drop a file or select add Image</h3>
+            </div>
+        </div>
+
+        <div class="file-upload-content">
+            <img class="file-upload-image" id="face-picture" src="#" alt="your image" />
+            <p class="result-Msg"></p>
+            <div id="label-container"></div>
+            <div class="image-title-wrap">
+            <button type="button" onclick="removeUpload()" class="remove-image">Try another one</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="animal-examples">
+        <div class="animal-sample">
+            <p>&lt; Dog face &gt;</p>
+            <img src="img/dog_ex.png" alt="dogExample">
+
+        </div>
+        <div class="animal-sample">
+            <p>&lt; Cat face &gt;</p>
+            <img src="img/cat_ex.png" alt="catExample">
+
+        </div>
+        <div class="animal-sample">
+            <p>&lt; Rabbit face &gt;</p>
+            <img src="img/rabbit_ex.png" alt="rabbitExample">
+
+        </div>
+        <div class="animal-sample">
+            <p>&lt; Dinosaur face &gt;</p>
+            <img src="img/dinosaur_ex.png" alt="dinosaurExample">
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
+    <script>
+        const URL = "https://teachablemachine.withgoogle.com/models/iH4wiN2A0/";
+
+        let model, labelContainer, maxPredictions;
+
+        function readURL(input) {
+            if (input.files && input.files[0]) {
+                var reader = new FileReader();
+                reader.onload = function (e) {
+                    $('.image-upload-wrap').hide();
+                    $('.file-upload-btn').hide();
+                    $('.file-upload-image').attr('src', e.target.result);
+                    $('.file-upload-content').show();
+                    init().then(() => {
+                        predict();
+                    });
+                };
+
+                reader.readAsDataURL(input.files[0]);
+            } else {
+                removeUpload();
+            }
+        }
+
+        function removeUpload() {
+            $('.file-upload-input').replaceWith($('.file-upload-input').clone());
+            $('.file-upload-content').hide();
+            $('.image-upload-wrap').show();
+            $('.file-upload-btn').show();
+            $('#label-container').empty();
+            $('.result-Msg').html("");
+        }
+
+        $('.image-upload-wrap').bind('dragover', function () {
+            $('.image-upload-wrap').addClass('image-dropping');
+        });
+        $('.image-upload-wrap').bind('dragleave', function () {
+            $('.image-upload-wrap').removeClass('image-dropping');
+        });
+
+        async function init() {
+            const modelURL = URL + "model.json";
+            const metadataURL = URL + "metadata.json";
+
+            model = await tmImage.load(modelURL, metadataURL);
+            maxPredictions = model.getTotalClasses();
+            labelContainer = document.getElementById("label-container");
+            for (let i = 0; i < maxPredictions; i++) {
+                labelContainer.appendChild(document.createElement("div"));
+            }
+        }
+
+        async function predict() {
+            var image = document.getElementById("face-picture");
+            const prediction = await model.predict(image, false);
+            prediction.sort((a, b) => parseFloat(b.probability) - parseFloat(a.probability));
+
+            const classColors = {
+                "Dog": "#4CAF50",
+                "Cat": "#FF9800",
+                "Rabbit": "#9C27B0",
+                "Dinosaur": "#2196F3"
+
+            };
+
+            var resultMsg;
+            var resultColor; 
+            switch (prediction[0].className) {
+                case "Dog":
+                    resultMsg = "Dog-Face"
+                    resultColor = classColors["Dog"];
+                    break;
+                case "Cat":
+                    resultMsg = "Cat-Face"
+                    resultColor = classColors["Cat"];
+                    break;
+                case "Rabbit":
+                    resultMsg = "Rabbit-Face"
+                    resultColor = classColors["Rabbit"];
+                    break;
+                case "Dinosaur":
+                    resultMsg = "Dinosaur-Face"
+                    resultColor = classColors["Dinosaur"];
+                    break;
+                default:
+                    resultMsg = "none"
+                    resultColor = "#000000";
+                    break;
+            }
+            $('.result-Msg').html(resultMsg).css('color', resultColor); 
+
+            for (let i = 0; i < maxPredictions; i++) {
+                const percentValue = prediction[i].probability.toFixed(2) * 100;
+                const classPrediction = prediction[i].className;
+
+                const predictionRow = document.createElement('div');
+                predictionRow.className = 'prediction-row';
+
+                const classNameLabel = document.createElement('div');
+                classNameLabel.className = 'class-name';
+                classNameLabel.innerText = classPrediction;
+                predictionRow.appendChild(classNameLabel);
+
+                const barContainer = document.createElement('div');
+                barContainer.className = 'bar-container';
+
+                const bar = document.createElement('div');
+                bar.className = 'bar';
+                bar.style.width = `${percentValue}%`;
+                bar.style.backgroundColor = classColors[classPrediction] || "#4CAF50";
+                bar.innerText = `${percentValue.toFixed(1)}%`;
+
+                barContainer.appendChild(bar);
+                predictionRow.appendChild(barContainer);
+                labelContainer.appendChild(predictionRow);
+            }
+        }
+    </script>
+
+</body>
+
+
+</html>
